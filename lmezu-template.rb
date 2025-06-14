@@ -1,286 +1,273 @@
-#!/usr/bin/env ruby
+# Rails 8.0+ Application Template
+# ---------------------------------
+#
+# This template configures a new Rails application with:
+# - Ruby 3.4.4 (.ruby-version file)
+# - PostgreSQL as the database
+# - Bun for JavaScript bundling
+# - Tailwind CSS (via postcss-cli, no gem)
+# - RSpec for testing, with Factory Bot, Faker, and Shoulda Matchers
+# - A curated set of development gems for debugging and performance.
+# - Rack-CORS for API readiness.
+# - Kamal for deployment.
+# - A default Welcome controller and view.
+#
+# Usage for Rails 8.0.2:
+# rails new your_app_name -d postgresql --javascript=bun --skip-kamal -m /path/to/this/template.rb
+#
+# ---------------------------------
 
-# Rails Application Template
-# Usage: rails new myapp -d postgresql -m rails_template.rb
-
-# Gems
-gem_group :development, :test do
-  gem 'rspec-rails'
-  gem 'factory_bot_rails'
-  gem 'faker'
-  gem 'shoulda-matchers'
-  gem 'database_cleaner-active_record'
+def source_paths
+  [__dir__]
 end
 
-gem_group :development do
-  gem 'ruby-lsp', require: false
-  gem 'letter_opener'
-  gem 'bullet'
-  gem 'better_errors'
-  gem 'binding_of_caller'
-  gem 'annotate'
-  gem 'active_record_query_trace'
-end
+def add_gems
+  # Specify Ruby version
+  file '.ruby-version', '3.4.4'
 
-# Tailwind CSS
-gem 'tailwindcss-rails'
+  # For API Cross-Origin Resource Sharing
+  gem 'rack-cors'
 
-# Run bundle install
-run 'bundle install'
+  # For deployment
+  gem 'kamal'
 
-# Setup PostgreSQL (already configured via -d postgresql flag)
-puts "PostgreSQL configured as database"
-
-# Setup Tailwind CSS
-generate 'tailwindcss:install'
-
-# Setup RSpec
-generate 'rspec:install'
-
-# Configure RSpec
-rspec_rails_helper = <<~RUBY
-RSpec.configure do |config|
-  config.expect_with :rspec do |expectations|
-    expectations.include_chain_clauses_in_custom_matcher_descriptions = true
+  gem_group :development, :test do
+    gem 'rspec-rails', '~> 6.1'
+    gem 'factory_bot_rails', '~> 6.4'
+    gem 'faker', '~> 3.3'
+    gem 'shoulda-matchers', '~> 5.3'
+    gem 'database_cleaner-active_record', '~> 2.1'
   end
 
-  config.mock_with :rspec do |mocks|
-    mocks.verify_partial_doubles = true
+  gem_group :development do
+    gem 'ruby-lsp', require: false
+    gem 'letter_opener', '~> 1.8'
+    gem 'bullet', '~> 7.1'
+    gem 'better_errors', '~> 2.10'
+    gem 'binding_of_caller', '~> 1.0'
+    gem 'annotate', '~> 3.2'
+    gem 'active_record_query_trace', '~> 2.2'
   end
-
-  config.shared_context_metadata_behavior = :apply_to_host_groups
-  config.filter_run_when_matching :focus
-  config.example_status_persistence_file_path = "spec/examples.txt"
-  config.disable_monkey_patching!
-  config.default_formatter = "doc" if config.files_to_run.one?
-  config.order = :random
-  Kernel.srand config.seed
-end
-RUBY
-
-# Create spec/rails_helper.rb with proper configuration
-rails_helper_content = <<~RUBY
-require 'spec_helper'
-ENV['RAILS_ENV'] ||= 'test'
-require_relative '../config/environment'
-abort("The Rails environment is running in production mode!") if Rails.env.production?
-require 'rspec/rails'
-require 'factory_bot_rails'
-require 'database_cleaner/active_record'
-
-Dir[Rails.root.join('spec', 'support', '**', '*.rb')].sort.each { |f| require f }
-
-begin
-  ActiveRecord::Migration.maintain_test_schema!
-rescue ActiveRecord::PendingMigrationError => e
-  abort e.to_s.strip
 end
 
-RSpec.configure do |config|
-  config.fixture_path = "\#{::Rails.root}/spec/fixtures"
-  config.use_transactional_fixtures = false
-  config.infer_spec_type_from_file_location!
-  config.filter_rails_from_backtrace!
-  
-  config.include FactoryBot::Syntax::Methods
+def setup_api
+  say "Setting up for API...", :cyan
+  # Add rack-cors configuration for API access
+  file 'config/initializers/cors.rb', <<~RUBY
+    # Be sure to restart your server when you modify this file.
 
-  config.before(:suite) do
-    DatabaseCleaner.strategy = :transaction
-    DatabaseCleaner.clean_with(:truncation)
-  end
+    # Avoid CORS issues when API is called from the frontend app.
+    # Handle Cross-Origin Resource Sharing (CORS) in order to accept cross-origin AJAX requests.
 
-  config.around(:each) do |example|
-    DatabaseCleaner.cleaning do
-      example.run
+    # Read more: https://github.com/cyu/rack-cors
+
+    Rails.application.config.middleware.insert_before 0, Rack::Cors do
+      allow do
+        origins '*' # WARNING: For development only. Change this for production.
+
+        resource '*',
+          headers: :any,
+          methods: [:get, :post, :put, :patch, :delete, :options, :head]
+      end
     end
-  end
-end
-
-Shoulda::Matchers.configure do |config|
-  config.integrate do |with|
-    with.test_framework :rspec
-    with.library :rails
-  end
-end
-RUBY
-
-# Update spec files
-remove_file 'spec/rails_helper.rb'
-create_file 'spec/rails_helper.rb', rails_helper_content
-
-inject_into_file 'spec/spec_helper.rb', after: "RSpec.configure do |config|\n" do
-  <<~RUBY
-  config.expect_with :rspec do |expectations|
-    expectations.include_chain_clauses_in_custom_matcher_descriptions = true
-  end
-
-  config.mock_with :rspec do |mocks|
-    mocks.verify_partial_doubles = true
-  end
-
-  config.shared_context_metadata_behavior = :apply_to_host_groups
-  config.filter_run_when_matching :focus
-  config.example_status_persistence_file_path = "spec/examples.txt"
-  config.disable_monkey_patching!
-  config.default_formatter = "doc" if config.files_to_run.one?
-  config.order = :random
-  Kernel.srand config.seed
-
   RUBY
 end
 
-# Create spec/support directory
-empty_directory 'spec/support'
+def setup_rspec
+  # Install RSpec
+  generate 'rspec:install'
 
-# Create factory_bot configuration
-create_file 'spec/support/factory_bot.rb', <<~RUBY
-RSpec.configure do |config|
-  config.include FactoryBot::Syntax::Methods
-end
-RUBY
+  # Remove the default test directory
+  run 'rm -rf test'
 
-# Configure development environment
-environment 'config.action_mailer.delivery_method = :letter_opener', env: 'development'
-environment 'config.action_mailer.perform_deliveries = true', env: 'development'
+  # Configure Shoulda Matchers
+  append_to_file 'spec/rails_helper.rb', <<~RUBY
 
-# Bullet configuration
-bullet_config = <<~RUBY
+    # Shoulda Matchers configuration
+    Shoulda::Matchers.configure do |config|
+      config.integrate do |with|
+        with.test_framework :rspec
+        with.library :rails
+      end
+    end
+  RUBY
 
-  # Bullet configuration
-  config.after_initialize do
-    Bullet.enable = true
-    Bullet.alert = true
-    Bullet.bullet_logger = true
-    Bullet.console = true
-    Bullet.rails_logger = true
+  # Configure Database Cleaner
+  inject_into_file 'spec/rails_helper.rb', after: "RSpec.configure do |config|\n" do
+    <<~RUBY
+      config.before(:suite) do
+        DatabaseCleaner.strategy = :transaction
+        DatabaseCleaner.clean_with(:truncation)
+      end
+
+      config.around(:each) do |example|
+        DatabaseCleaner.cleaning do
+          example.run
+        end
+      end
+
+    RUBY
   end
-RUBY
-
-inject_into_file 'config/environments/development.rb', bullet_config, before: 'end'
-
-# ActiveRecord Query Trace configuration
-query_trace_config = <<~RUBY
-
-  # ActiveRecord Query Trace
-  if defined?(ActiveRecordQueryTrace)
-    ActiveRecordQueryTrace.enabled = true
-  end
-RUBY
-
-inject_into_file 'config/environments/development.rb', query_trace_config, before: 'end'
-
-# Configure Annotate
-generate 'annotate:install'
-
-# Create a basic controller and view for testing
-generate 'controller', 'Home', 'index'
-
-# Update routes
-route "root 'home#index'"
-
-# Update home controller
-inject_into_file 'app/controllers/home_controller.rb', after: "def index\n" do
-  "    @message = 'Welcome to your new Rails app with Tailwind CSS!'\n"
 end
 
-# Update home view with Tailwind classes
-remove_file 'app/views/home/index.html.erb'
-create_file 'app/views/home/index.html.erb', <<~HTML
-<div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-  <div class="relative py-3 sm:max-w-xl sm:mx-auto">
-    <div class="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-0 sm:-rotate-6 sm:rounded-3xl"></div>
-    <div class="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
-      <div class="max-w-md mx-auto">
-        <div class="divide-y divide-gray-200">
-          <div class="py-8 text-base leading-6 space-y-4 text-gray-700 sm:text-lg sm:leading-7">
-            <h1 class="text-2xl font-bold text-gray-900 mb-4">🚀 Rails Template Setup Complete!</h1>
-            <p><%= @message %></p>
-            <ul class="list-disc space-y-2 ml-4">
-              <li>PostgreSQL configured</li>
-              <li>Tailwind CSS ready</li>
-              <li>RSpec test suite setup</li>
-              <li>Development gems installed</li>
-            </ul>
-          </div>
+def setup_development_environment
+  # Configure Letter Opener for development email previews
+  environment 'config.action_mailer.delivery_method = :letter_opener', env: 'development'
+  environment 'config.action_mailer.perform_deliveries = true', env: 'development'
+
+  # Configure Bullet for N+1 query detection
+  initializer 'bullet.rb', <<~RUBY
+    # config/initializers/bullet.rb
+    if defined?(Bullet)
+      Bullet.enable = true
+      Bullet.alert = true
+      Bullet.bullet_logger = true
+      Bullet.console = true
+      # Bullet.growl = true
+      Bullet.rails_logger = true
+      Bullet.add_footer = true
+    end
+  RUBY
+
+  # Install annotate's binstub
+  run 'bundle exec rails g annotate:install'
+end
+
+def setup_tailwind
+  say "Setting up Tailwind CSS manually...", :cyan
+
+  # Install JS dependencies
+  run "bun add tailwindcss postcss autoprefixer"
+
+  # Create tailwind.config.js
+  file 'tailwind.config.js', <<~JS
+    module.exports = {
+      content: [
+        './app/views/**/*.html.erb',
+        './app/helpers/**/*.rb',
+        './app/assets/stylesheets/**/*.css',
+        './app/javascript/**/*.js'
+      ]
+    }
+  JS
+
+  # Create postcss.config.js
+  file 'postcss.config.js', <<~JS
+    module.exports = {
+      plugins: {
+        tailwindcss: {},
+        autoprefixer: {},
+      }
+    }
+  JS
+
+  # Create the main Tailwind input file
+  file 'app/assets/stylesheets/application.tailwind.css', <<~CSS
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+  CSS
+
+  # Add CSS build command to Procfile.dev
+  append_to_file 'Procfile.dev', "css: bun tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --watch\n"
+end
+
+def setup_kamal
+  say "Setting up Kamal for deployment...", :cyan
+  rails_command "kamal:install"
+end
+
+def setup_root_route_and_view
+  say "Creating Welcome controller and view...", :cyan
+  generate :controller, "Welcome", "index"
+  route "root 'welcome#index'"
+
+  # Overwrite the generated view with a nice landing page
+  remove_file 'app/views/welcome/index.html.erb'
+  file 'app/views/welcome/index.html.erb', <<~HTML
+    <main class="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col justify-center items-center p-4">
+      <div class="max-w-3xl w-full text-center">
+        <div class="mb-8">
+          <h1 class="text-4xl sm:text-6xl font-extrabold text-gray-800 dark:text-white">
+            Welcome to Your Rails 8 App!
+          </h1>
+          <p class="mt-4 text-lg text-gray-600 dark:text-gray-300">
+            This application is ready to go, configured with Tailwind CSS, RSpec, and Bun.
+          </p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <h2 class="text-2xl font-bold text-gray-700 dark:text-white mb-6">
+            Next Steps
+          </h2>
+          <ul class="text-left space-y-4">
+            <li class="flex items-start">
+              <span class="text-green-500 dark:text-green-400 mr-3 mt-1 flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              </span>
+              <div>
+                <h3 class="font-semibold text-gray-800 dark:text-gray-100">Start your server</h3>
+                <p class="text-gray-600 dark:text-gray-400">Run <code class="bg-gray-200 dark:bg-gray-700 text-sm font-mono p-1 rounded">bin/dev</code> to start the development server.</p>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <span class="text-green-500 dark:text-green-400 mr-3 mt-1 flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M3 10h11M3 6h11M3 14h5M3 18h5"></path></svg>
+              </span>
+              <div>
+                <h3 class="font-semibold text-gray-800 dark:text-gray-100">Generate a Scaffold</h3>
+                <p class="text-gray-600 dark:text-gray-400">Try <code class="bg-gray-200 dark:bg-gray-700 text-sm font-mono p-1 rounded">rails g scaffold Post title:string body:text</code></p>
+              </div>
+            </li>
+             <li class="flex items-start">
+              <span class="text-green-500 dark:text-green-400 mr-3 mt-1 flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+              </span>
+              <div>
+                <h3 class="font-semibold text-gray-800 dark:text-gray-100">Run Your Tests</h3>
+                <p class="text-gray-600 dark:text-gray-400">Execute <code class="bg-gray-200 dark:bg-gray-700 text-sm font-mono p-1 rounded">bundle exec rspec</code> to run the test suite.</p>
+              </div>
+            </li>
+          </ul>
         </div>
       </div>
-    </div>
-  </div>
-</div>
-HTML
-
-# Configure Bun (JavaScript runtime)
-bun_config = <<~RUBY
-
-# Configure Bun as JavaScript runtime
-Rails.application.config.assets.configure do |env|
-  env.export_concurrent = false
+    </main>
+  HTML
 end
-RUBY
 
-inject_into_file 'config/application.rb', bun_config, before: '  end'
-
-# Create a .bun-version file to specify Bun version
-create_file '.bun-version', 'latest'
-
-# Add package.json for Bun
-create_file 'package.json', <<~JSON
-{
-  "name": "rails-app",
-  "version": "1.0.0",
-  "description": "Rails application with Bun",
-  "main": "app/javascript/application.js",
-  "scripts": {
-    "build": "bun run build:css",
-    "build:css": "tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/tailwind.css --watch"
-  },
-  "dependencies": {
-    "@hotwired/turbo-rails": "^7.0.0",
-    "@hotwired/stimulus": "^3.0.0"
-  },
-  "devDependencies": {
-    "tailwindcss": "^3.0.0"
-  }
-}
-JSON
-
-# Run database setup
-rails_command 'db:create'
-rails_command 'db:migrate'
-
-# Generate a sample model and spec for testing
-generate 'model', 'User', 'name:string', 'email:string'
-rails_command 'db:migrate'
-
-# Create sample factory
-create_file 'spec/factories/users.rb', <<~RUBY
-FactoryBot.define do
-  factory :user do
-    name { Faker::Name.full_name }
-    email { Faker::Internet.email }
-  end
+def setup_database
+  say "Creating and migrating database...", :cyan
+  rails_command 'db:create'
+  rails_command 'db:migrate'
 end
-RUBY
 
-# Run tests to ensure everything works
-rails_command 'spec'
+def initial_commit
+  say "Initializing Git repository and making initial commit...", :cyan
+  git :init
+  git add: "."
+  git commit: "-m 'Initial commit: Rails app configured with custom template'"
+end
 
-puts "\n" + "="*50
-puts "🎉 Rails Template Setup Complete!"
-puts "="*50
-puts "✅ PostgreSQL configured"
-puts "✅ Tailwind CSS installed"
-puts "✅ Bun configured for JavaScript"
-puts "✅ RSpec test suite setup"
-puts "✅ Development gems installed:"
-puts "   - ruby-lsp, better_errors, binding_of_caller"
-puts "   - bullet, letter_opener, annotate"
-puts "   - active_record_query_trace"
-puts "✅ Test gems installed:"
-puts "   - rspec-rails, factory_bot_rails, faker"
-puts "   - shoulda-matchers, database_cleaner-active_record"
-puts "\nNext steps:"
-puts "1. Run 'bun install' to install JavaScript dependencies"
-puts "2. Start the server with 'rails server'"
-puts "3. Run tests with 'bundle exec rspec'"
-puts "="*50
+# Main setup execution
+# --------------------
+
+say "Starting Rails 8 application template...", :cyan
+
+add_gems
+
+# This runs `bundle install`
+after_bundle do
+  setup_api
+  setup_rspec
+  setup_development_environment
+  setup_tailwind
+  setup_kamal
+  setup_root_route_and_view
+  setup_database
+
+  # Perform final cleanup and versioning
+  initial_commit
+
+  say "✅ Template application setup is complete!", :green
+  say "To start your server, run `bin/dev`"
+end
